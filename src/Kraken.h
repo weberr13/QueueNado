@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 #include <czmq.h>
+#include <cstdint>
 
 struct _zctx_t;
 typedef struct _zctx_t zctx_t;

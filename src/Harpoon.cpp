@@ -14,14 +14,14 @@
 
 /// Creates the client that is to connect to the server/Kraken
 Harpoon::Harpoon():
-   mQueueLength(1), //Number of allowed messages in queue
+  mQueueLength(1), //Number of allowed messages in queue
    mTimeoutMs(300000), //5 minutes
    mOffset(0),
    mChunk(nullptr) {
    mCtx = zctx_new();
-   CHECK(mCtx);
+   CHECK(mCtx!=nullptr);
    mDealer = zsocket_new(mCtx, ZMQ_DEALER);
-   CHECK(mDealer);
+   CHECK(mDealer!=nullptr);
    mCredit = mQueueLength;
 }
 

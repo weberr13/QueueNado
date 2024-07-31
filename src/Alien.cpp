@@ -8,11 +8,11 @@
 /**
  * Alien is a ZeroMQ Sub socket.
  */
-Alien::Alien() {
+Alien::Alien() { 
    mCtx = zctx_new();
-   CHECK(mCtx);
+   CHECK(mCtx!=nullptr);
    mBody = zsocket_new(mCtx, ZMQ_SUB);
-   CHECK(mBody);
+   CHECK(mBody!=nullptr);
 }
 
 /**
