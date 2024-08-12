@@ -44,8 +44,7 @@ private:
    std::string mBinding;
    void *mChamber;
    zctx_t *mCtx;
-   //boost::mt19937 mRan;
-   boost::uuids::basic_random_generator<boost::mt19937> m_uuidGen;
+   boost::mt19937 mRan;
    int mSendHWM;
    int mRecvHWM;
    unsigned int mPendingAlertSize;
