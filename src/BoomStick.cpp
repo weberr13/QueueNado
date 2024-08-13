@@ -83,7 +83,8 @@ void BoomStick::Swap(BoomStick& other) {
    mCtx = other.mCtx;
    mLastGCTime = other.mLastGCTime;
    mRan = other.mRan;
-   m_uuidGen = other.m_uuidGen;
+   //m_uuidGen = other.m_uuidGen;
+   m_uuidGen = std::move(other.m_uuidGen);
    mSendHWM = other.mSendHWM;
    mRecvHWM = other.mRecvHWM;
    mPendingAlertSize = other.mPendingAlertSize;
