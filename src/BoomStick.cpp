@@ -35,7 +35,7 @@ BoomStick::BoomStick(const std::string& binding) : mLastGCTime(time(NULL)),
 mBinding(binding), mChamber(nullptr), mCtx(nullptr), mRan(), m_uuidGen(mRan),
 mSendHWM(1000), mRecvHWM(1000), mPendingAlertSize(500), mUnreadAlertSize(500),
 mUnreadAlert(false), mPendingAlert(false), mUtilizedThread(0) {
-  mRan.seed(boost::uuids::detail::seed_rng()());
+mRan.seed(boost::uuids::detail::seed_rng()());
 
 }
 
