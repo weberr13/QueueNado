@@ -44,7 +44,8 @@ private:
    std::string mBinding;
    void *mChamber;
    zctx_t *mCtx;
-   boost::mt19937 mRan;
+   //boost::mt19937 mRan;
+   boost::random::random_device rng;
    int mSendHWM;
    int mRecvHWM;
    unsigned int mPendingAlertSize;
