@@ -46,6 +46,7 @@ private:
    void *mChamber;
    zctx_t *mCtx;
    boost::mt19937 mRan;
+   boost::uuids::basic_random_generator<boost::mt19937> m_uuidGen;
    boost::random::random_device rng;
    int mSendHWM;
    int mRecvHWM;
