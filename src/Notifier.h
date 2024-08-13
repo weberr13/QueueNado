@@ -8,6 +8,7 @@
 #include <mutex>
 #include <memory>
 #include <vector>
+#include <string>
 
 class Shotgun;
 class Vampire;
