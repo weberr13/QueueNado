@@ -15,7 +15,7 @@
 #include "QueueNadoMacros.h"
 #include "BoomStick.h"
 #include <boost/random/mersenne_twister.hpp>
-#include <boost/random/random_device.hpp>
+//#include <boost/random/random_device.hpp>
 namespace {
 
    void ShrinkToFit(std::map<std::string, std::string>& map) {
