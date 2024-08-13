@@ -23,9 +23,9 @@ Kraken::Kraken():
    mTimeoutMs(300000), //5 Minutes
    mChunk(nullptr) {
    mCtx = zctx_new();
-   CHECK(mCtx);
+   CHECK(mCtx!=nullptr);
    mRouter = zsocket_new(mCtx, ZMQ_ROUTER);
-   CHECK(mRouter);
+   CHECK(mRouter!=nullptr);
 }
 
 /// Set location of the queue (TCP location)
