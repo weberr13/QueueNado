@@ -3,6 +3,7 @@
 #include <map>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
+#include <boost/random/random_device.hpp>
 struct _zctx_t;
 typedef struct _zctx_t zctx_t;
 
