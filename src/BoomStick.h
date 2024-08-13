@@ -54,4 +54,5 @@ private:
    bool mUnreadAlert;
    bool mPendingAlert;
    pthread_t mUtilizedThread;
+   boost::uuids::random_generator m_uuidGen;
 };
