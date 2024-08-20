@@ -78,12 +78,6 @@ IF ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
    SET(CMAKE_CXX_FLAGS "-fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -Wall -rdynamic -Wunused -std=c++14 -pthread -D_GLIBCXX_USE_NANOSLEEP")
 ENDIF()
 
-find_package(Boost 1.75 COMPONENTS random)
-if(Boost_FOUND) 
-    include_directories(${Boost_INCLUDE_DIRS}) 
-    target_link_libraries(test_boost ${Boost_LIBRARIES}) 
-endif()
-
 
 # Setup Library name
 # Name for the library
