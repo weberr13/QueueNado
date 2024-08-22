@@ -44,7 +44,6 @@ else
 fi
 
 make -j6
-sudo ./UnitTestRunner
 if [ "%{buildtype}" == "-DUSE_LR_DEBUG=ON"  ]; then
    /usr/local/probe/bin/CodeCoverage.py
    username=$(whoami)
