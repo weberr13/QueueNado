@@ -29,6 +29,9 @@ list(APPEND LIBS ${BOOST_THREAD})
 find_library(BOOST_SYSTEM boost_system PATHS /usr/local/probe/lib )
 list(APPEND LIBS ${BOOST_SYSTEM})
 
+find_library(BOOST_SYSTEM boost_system PATHS /usr/local/probe/lib )
+list(APPEND LIBS ${BOOST_SYSTEM})
+
 find_library(FILEIO FileIO PATHS /usr/local/probe/lib )
 list(APPEND LIBS ${FILEIO})
 
