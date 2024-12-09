@@ -12,6 +12,7 @@
 #include <chrono>
 #include <zmq.h>
 #include <zsock.h>
+#include <iostream>
 
 /// Creates the client that is to connect to the server/Kraken
 Harpoon::Harpoon() : mQueueLength(1),    // Number of allowed messages in queue
@@ -20,7 +21,7 @@ Harpoon::Harpoon() : mQueueLength(1),    // Number of allowed messages in queue
                      mChunk(nullptr)
 {
    // Initialize context and check for success
-   mCtx = static_cast<zctx_t *>(zmq_ctx_new()); // Explicit cast
+   mCtx = zmq_ctx_new(); // Explicit cast
    if (mCtx == nullptr)
    {
       // Proper error handling using zmq_errno
