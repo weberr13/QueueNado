@@ -47,7 +47,7 @@ protected:
    
 private:
    void* mDealer;
-   zmq_ctx_t *mCtx;
+   void* mCtx;
    size_t mQueueLength;
    int mTimeoutMs;
    size_t mCredit;
