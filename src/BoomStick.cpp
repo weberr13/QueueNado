@@ -1,10 +1,10 @@
 #include "g3log/g3log.hpp"
 #include <czmq.h>
 #include <zsock.h>
-// #include <zsocket.h>
+#include <zsocket.h>
 #include <zmsg.h>
-// #include <zsocket.h>
-// #include <zsockopt.h>
+#include <zsocket.h>
+#include <zsockopt.h>
 #include <zframe.h>
 #include <iostream>
 #include <time.h>
@@ -15,6 +15,7 @@
 #include "QueueNadoMacros.h"
 #include "BoomStick.h"
 #include <boost/random/mersenne_twister.hpp>
+#include <zmq.h>
 // #include <boost/random/random_device.hpp>
 namespace
 {
@@ -53,7 +54,7 @@ BoomStick::~BoomStick()
 {
    if (mCtx != nullptr)
    {
-      zsock_destroy(&mCtx);
+      zctx_destroy(&mCtx);
    }
    if (!mPendingReplies.empty())
    {
@@ -77,7 +78,7 @@ BoomStick::~BoomStick()
  * Get the context (can be safely shared between threads)
  * @return
  */
-zsock_t *BoomStick::GetContext()
+zctx_t *BoomStick::GetContext()
 {
    return mCtx;
 }
@@ -155,7 +156,7 @@ BoomStick &BoomStick::operator=(BoomStick &&other)
    {
       if (nullptr != mCtx)
       {
-         zsock_destroy(&mCtx);
+         zctx_destroy(&mCtx);
       }
       Swap(other);
    }
@@ -167,9 +168,9 @@ BoomStick &BoomStick::operator=(BoomStick &&other)
  * @return
  *   A pointer to the context
  */
-zsock_t *BoomStick::GetNewContext()
+zctx_t *BoomStick::GetNewContext()
 {
-   zsock_t *context = zsock_new();
+   zctx_t *context = zctx_new();
    return context;
 }
 
@@ -180,13 +181,13 @@ zsock_t *BoomStick::GetNewContext()
  * @return
  *   A pointer to a socket
  */
-void *BoomStick::GetNewSocket(zsock_t *ctx)
+void *BoomStick::GetNewSocket(zctx_t *ctx)
 {
    if (nullptr == ctx)
    {
       return nullptr;
    }
-   return zsock_new(ctx, ZMQ_DEALER);
+   return zsocket_new(ctx, ZMQ_DEALER);
 }
 
 std::string BoomStick::GetUuid()
@@ -214,10 +215,10 @@ bool BoomStick::ConnectToBinding(void *socket, const std::string &binding)
    {
       return false;
    }
-   zsock_set_sndhwm(socket, mSendHWM);
-   zsock_set_rcvhwm(socket, mRecvHWM);
+   zsocket_set_sndhwm(socket, mSendHWM);
+   zsocket_set_rcvhwm(socket, mRecvHWM);
 
-   return (zsock_connect(socket, binding.c_str()) >= 0);
+   return (zsocket_connect(socket, binding.c_str()) >= 0);
 }
 
 /**
@@ -228,7 +229,7 @@ void BoomStick::SetBinding(const std::string &binding)
 {
    if (nullptr != mCtx)
    {
-      zsock_destroy(&mCtx);
+      zctx_destroy(&mCtx);
       mCtx = nullptr;
       mChamber = nullptr;
    }
@@ -257,14 +258,14 @@ bool BoomStick::Initialize()
    if (nullptr == mChamber)
    {
       LOG(WARNING) << "queue error " << zmq_strerror(zmq_errno());
-      zsock_destroy(&mCtx);
+      zctx_destroy(&mCtx);
       mCtx = nullptr;
       return false;
    }
    if (!ConnectToBinding(mChamber, mBinding))
    {
 
-      zsock_destroy(&mCtx);
+      zctx_destroy(&mCtx);
       mChamber = nullptr;
       mCtx = nullptr;
       return false;
@@ -458,7 +459,7 @@ bool BoomStick::CheckForMessagePending(const std::string &messageHash, const uns
       LOG(WARNING) << "Invalid socket";
       return false;
    }
-   if (!zsock_poll(mChamber, msToWait))
+   if (!zsocket_poll(mChamber, msToWait))
    {
       reply = "socket timed out";
       return false;
@@ -577,7 +578,7 @@ bool BoomStick::GetReplyFromSocket(const std::string &uuid, const unsigned int m
    }
    bool found = false;
    reply = "Timed out searching for reply";
-   while (!zsock_interrupted && !found && CheckForMessagePending(uuid, msToWait, reply))
+   while (!zctx_interrupted && !found && CheckForMessagePending(uuid, msToWait, reply))
    {
       std::string foundId;
       if (!ReadFromReadySocket(foundId, reply))

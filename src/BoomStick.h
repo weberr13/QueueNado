@@ -4,8 +4,8 @@
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/random/random_device.hpp>
-struct _zsock_t;
-typedef struct _zsock_t zsock_t;
+struct _zctx_t;
+typedef struct _zctx_t zctx_t;
 
 class BoomStick
 {
@@ -24,11 +24,11 @@ public:
    void SetBinding(const std::string &binding);
    void SetSendHWM(const int hwm);
    void SetRecvHWM(const int hwm);
-   zsock_t *GetContext();
+   zctx_t *GetContext();
 
 protected:
-   virtual zsock_t *GetNewContext();
-   virtual void *GetNewSocket(zsock_t *ctx);
+   virtual zctx_t *GetNewContext();
+   virtual void *GetNewSocket(zctx_t *ctx);
    virtual bool ConnectToBinding(void *socket, const std::string &binding);
    virtual bool FindPendingUuid(const std::string &uuid) const;
    bool FindUnreadUuid(const std::string &uuid) const;
@@ -47,7 +47,7 @@ private:
    std::map<std::string, time_t> mPendingReplies;
    std::string mBinding;
    void *mChamber;
-   zsock_t *mCtx;
+   zctx_t *mCtx;
    boost::mt19937 mRan;
    boost::uuids::basic_random_generator<boost::mt19937> m_uuidGen;
    boost::random::random_device rng;
