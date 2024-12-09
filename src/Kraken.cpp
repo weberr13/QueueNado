@@ -40,22 +40,23 @@ Kraken::Spear Kraken::SetLocation(const std::string& location) {
    {
       LOG(WARNING) << "Failed to set send high water mark: " << zmq_strerror(zmq_errno());
       zmq_close(mRouter);
-      return NULL;
+      return Kraken::Spear::MISS;  // Return MISS instead of NULL
    }
 
    result = zmq_setsockopt(mRouter, ZMQ_RCVHWM, &high_water_mark, sizeof(high_water_mark));
    if (result != 0)
    {
-      LOG(WARNING) << "Failed to set send high water mark: " << zmq_strerror(zmq_errno());
+      LOG(WARNING) << "Failed to set receive high water mark: " << zmq_strerror(zmq_errno());
       zmq_close(mRouter);
-      return NULL;
+      return Kraken::Spear::MISS;  // Return MISS instead of NULL
    }
 
    result = zmq_bind(mRouter, mLocation.c_str());
 
    LOG(INFO) << "zmq_bind result: " << result << ", " << location;
-   return (-1 == result) ? Kraken::Spear::MISS : Kraken::Spear::IMPALED;
+   return (result == -1) ? Kraken::Spear::MISS : Kraken::Spear::IMPALED; // Return MISS or IMPALED based on the result
 }
+
 
 /// Set the amount of time in MS the server should wait for client ACKs
 void Kraken::MaxWaitInMs(const int timeoutMs) {
