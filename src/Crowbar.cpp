@@ -40,7 +40,7 @@ Crowbar::Crowbar(const Headcrab &target) : mContext(target.GetContext()),
  * @param context
  *   A working context
  */
-Crowbar::Crowbar(const std::string &binding, zctx_t *context) : mContext(context),
+Crowbar::Crowbar(const std::string &binding, void *context) : mContext(context),
                                                                 mBinding(binding), mTip(NULL), mOwnsContext(false)
 {
 }
