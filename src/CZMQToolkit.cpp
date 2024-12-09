@@ -7,15 +7,16 @@
  * @param socket
  * @param size
  */
-void CZMQToolkit::setHWMAndBuffer(void* socket, const int size) {
+void CZMQToolkit::setHWMAndBuffer(void *socket, const int size)
+{
 
    //   zmq_setsockopt(socket, ZMQ_SNDHWM, &size,
    //      sizeof (size));
    //   zmq_setsockopt(socket, ZMQ_RCVHWM, &size,
    //      sizeof (size));
-   zsocket_set_rcvhwm(socket, size);
+   zsock_set_rcvhwm(socket, size);
    //      zsocket_set_rcvbuf(socket, size);
-   zsocket_set_sndhwm(socket, size);
+   zsock_set_sndhwm(socket, size);
    //   zsocket_set_sndbuf(socket, size);
 }
 
@@ -24,36 +25,41 @@ void CZMQToolkit::setHWMAndBuffer(void* socket, const int size) {
  * @param socket
  * @param name
  */
-void CZMQToolkit::PrintCurrentHighWater(void* socket, const std::string& name) {
-   int rcvbuf = zsocket_rcvbuf(socket);
-   int rcvhwm = zsocket_rcvhwm(socket);
-   int sndbuf = zsocket_sndbuf(socket);
-   int sndhwm = zsocket_sndhwm(socket);
+void CZMQToolkit::PrintCurrentHighWater(void *socket, const std::string &name)
+{
+   int rcvbuf = zsock_rcvbuf(socket);
+   int rcvhwm = zsock_rcvhwm(socket);
+   int sndbuf = zsock_sndbuf(socket);
+   int sndhwm = zsock_sndhwm(socket);
    LOG(DEBUG) << name << ": rcvbuf:" << rcvbuf << " rcvhwm:"
-           << rcvhwm << " sndbuf:" << sndbuf << " sndhwm:" << sndhwm;
+              << rcvhwm << " sndbuf:" << sndbuf << " sndhwm:" << sndhwm;
 }
 
 /**
  * Send a message that already exists to a socket
- * 
+ *
  * @param bullet
  *   A valid message
  * @param socket
  *   An open socket
- * @return 
- *   If the call succeeded. 
+ * @return
+ *   If the call succeeded.
  */
-bool CZMQToolkit::SendExistingMessage(zmsg_t*& message, void* socket) {
+bool CZMQToolkit::SendExistingMessage(zmsg_t *&message, void *socket)
+{
 
-   if (! socket || ! message) {
+   if (!socket || !message)
+   {
       LOG(WARNING) << "Failed on send, NULL socket or message";
-      if (message) {
+      if (message)
+      {
          zmsg_destroy(&message);
       }
       return false;
    }
    bool success = true;
-   if (zmsg_send(&message, socket) != 0) {
+   if (zmsg_send(&message, socket) != 0)
+   {
 
       int err = zmq_errno();
       std::string error(zmq_strerror(err));
@@ -61,9 +67,9 @@ bool CZMQToolkit::SendExistingMessage(zmsg_t*& message, void* socket) {
 
       success = false;
    }
-   if (message) {
+   if (message)
+   {
       zmsg_destroy(&message);
    }
    return success;
 }
-
