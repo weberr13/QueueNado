@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <vector>
 #include <string>
+#include <zmq.h>
+
 struct _zctx_t;
 typedef struct _zctx_t zctx_t;
 class Alien {
