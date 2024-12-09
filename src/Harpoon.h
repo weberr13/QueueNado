@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 #include <czmq.h>
+#include <zmq.h>
 
 /** Harpoon-Kraken is a PipeLine communication pattern used to
 *  stream files or plain data from a server to a client. 
