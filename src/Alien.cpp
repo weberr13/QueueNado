@@ -24,14 +24,34 @@ void Alien::PrepareToBeShot(const std::string &location)
 {
    // Subscribe to everything
    char dummy = '\0';
-   zsocket_set_subscribe(mBody, &dummy);
-   zsocket_set_rcvhwm(mBody, 32 * 1024);
-   zsocket_set_sndhwm(mBody, 32 * 1024);
-   int rc = zsocket_connect(mBody, location.c_str());
-   if (rc == -1)
+   int rc = zmq_setsockopt(mBody, ZMQ_SUBSCRIBE, &dummy, 0); // Empty subscription
+   if (rc != 0)
    {
-      LOG(WARNING) << "location: " << location;
-      LOG(WARNING) << "connect socket rc == " << rc;
+      std::cerr << "Failed to subscribe: " << rc << std::endl;
+      throw std::string("Failed to subscribe to the socket");
+   }
+   // Set High Water Marks (HWM)
+   int hwm = 32 * 1024;
+   rc = zmq_setsockopt(mBody, ZMQ_RCVHWM, &hwm, sizeof(hwm));
+   if (rc != 0)
+   {
+      std::cerr << "Failed to set receive HWM: " << rc << std::endl;
+      throw std::string("Failed to set receive HWM");
+   }
+
+   rc = zmq_setsockopt(mBody, ZMQ_SNDHWM, &hwm, sizeof(hwm));
+   if (rc != 0)
+   {
+      std::cerr << "Failed to set send HWM: " << rc << std::endl;
+      throw std::string("Failed to set send HWM");
+   }
+
+   // Connect the socket to the specified location
+   rc = zmq_connect(mBody, location.c_str());
+   if (rc != 0)
+   {
+      std::cerr << "Failed to connect to location: " << location << std::endl;
+      std::cerr << "Error code: " << rc << std::endl;
       throw std::string("Failed to connect to socket");
    }
 }
