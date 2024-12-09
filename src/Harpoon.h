@@ -55,8 +55,8 @@ protected:
    void FreeChunk();
 
 private:
-   void *mDealer;
-   zmq_ctx_t *mCtx;
+   void* mDealer;
+   zmq_ctx_t* mCtx;
    size_t mQueueLength;
    int mTimeoutMs;
    size_t mCredit;

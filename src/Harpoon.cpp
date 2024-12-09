@@ -133,7 +133,7 @@ Harpoon::Battling Harpoon::Heave(std::vector<uint8_t> &data)
          return Harpoon::Battling::VICTORIOUS;
       }
 
-      uint8_t *raw = reinterpret_cast<uint8_t *>(zframe_data(mChunk));
+      uint8_t* raw = reinterpret_cast<uint8_t*>(zframe_data(mChunk));
       std::copy(raw, raw + size, data.begin());
 
       mCredit++;
