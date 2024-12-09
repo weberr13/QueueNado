@@ -3,6 +3,7 @@
 #include <zsock.h>
 // #include <zsocket.h>
 #include <zmsg.h>
+#include <zmq.hpp>
 // #include <zsocket.h>
 // #include <zsockopt.h>
 #include <zframe.h>
