@@ -19,9 +19,9 @@ Harpoon::Harpoon() : mQueueLength(1),    // Number of allowed messages in queue
                      mOffset(0),
                      mChunk(nullptr)
 {
-   mCtx = zrex_new();
+   mCtx = zmq_ctx_new();
    CHECK(mCtx != nullptr);
-   mDealer = zsock_new(mCtx, ZMQ_DEALER);
+   mDealer = zmq_socket(mCtx, ZMQ_DEALER);
    CHECK(mDealer != nullptr);
    mCredit = mQueueLength;
 }
@@ -29,7 +29,7 @@ Harpoon::Harpoon() : mQueueLength(1),    // Number of allowed messages in queue
 /// Set location of the queue (TCP location)
 Harpoon::Spear Harpoon::Aim(const std::string &location)
 {
-   int result = zsocket_connect(mDealer, location.c_str());
+   int result = zmq_connect(mDealer, location.c_str());
    return (0 == result) ? Harpoon::Spear::IMPALED : Harpoon::Spear::MISS;
 }
 
@@ -72,7 +72,7 @@ Harpoon::Battling Harpoon::PollTimeout(int timeoutMs)
    using namespace std::chrono;
 
    steady_clock::time_point pollStartMs = steady_clock::now();
-   while (!zsocket_poll(mDealer, 1))
+   while (!zmq_poll(mDealer, 1))
    {
       int pollElapsedMs = duration_cast<milliseconds>(steady_clock::now() - pollStartMs).count();
       if (pollElapsedMs >= timeoutMs)
@@ -134,8 +134,8 @@ void Harpoon::FreeChunk()
 Harpoon::~Harpoon()
 {
    FreeChunk();
-   zsocket_destroy(mCtx, mDealer);
-   zctx_destroy(&mCtx);
+   zmq_close(mCtx, mDealer);
+   zmq_ctx_term(&mCtx);
 }
 
 std::string Harpoon::EnumToString(Harpoon::Battling value) const
