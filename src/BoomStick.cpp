@@ -54,7 +54,7 @@ BoomStick::~BoomStick()
 {
    if (mCtx != nullptr)
    {
-      zctx_destroy(&mCtx);
+      zmq_close(&mCtx);
    }
    if (!mPendingReplies.empty())
    {
@@ -156,7 +156,7 @@ BoomStick &BoomStick::operator=(BoomStick &&other)
    {
       if (nullptr != mCtx)
       {
-         zctx_destroy(&mCtx);
+         zmq_close(&mCtx);
       }
       Swap(other);
    }
@@ -168,9 +168,9 @@ BoomStick &BoomStick::operator=(BoomStick &&other)
  * @return
  *   A pointer to the context
  */
-zctx_t *BoomStick::GetNewContext()
+void *BoomStick::GetNewContext()
 {
-   zctx_t *context = zctx_new();
+   void *context = zmq_ctx_new();
    return context;
 }
 
@@ -187,7 +187,7 @@ void *BoomStick::GetNewSocket(zctx_t *ctx)
    {
       return nullptr;
    }
-   return zsocket_new(ctx, ZMQ_DEALER);
+   return zmq_socket(ctx, ZMQ_DEALER);
 }
 
 std::string BoomStick::GetUuid()
@@ -215,10 +215,10 @@ bool BoomStick::ConnectToBinding(void *socket, const std::string &binding)
    {
       return false;
    }
-   zsocket_set_sndhwm(socket, mSendHWM);
-   zsocket_set_rcvhwm(socket, mRecvHWM);
+   zmq_setsockopt(socket, ZMQ_SNDHWM, &mSendHWM, sizeof(mSendHWM));
+   zmq_setsockopt(socket, ZMQ_RCVHWM, &mRecvHWM, sizeof(mRecvHWM));
 
-   return (zsocket_connect(socket, binding.c_str()) >= 0);
+   return (zmq_connect(socket, binding.c_str()) == 0);
 }
 
 /**
@@ -229,7 +229,7 @@ void BoomStick::SetBinding(const std::string &binding)
 {
    if (nullptr != mCtx)
    {
-      zctx_destroy(&mCtx);
+      zmq_close(&mCtx);
       mCtx = nullptr;
       mChamber = nullptr;
    }
@@ -258,14 +258,14 @@ bool BoomStick::Initialize()
    if (nullptr == mChamber)
    {
       LOG(WARNING) << "queue error " << zmq_strerror(zmq_errno());
-      zctx_destroy(&mCtx);
+      zmq_close(&mCtx);
       mCtx = nullptr;
       return false;
    }
    if (!ConnectToBinding(mChamber, mBinding))
    {
 
-      zctx_destroy(&mCtx);
+      zmq_close(&mCtx);
       mChamber = nullptr;
       mCtx = nullptr;
       return false;
