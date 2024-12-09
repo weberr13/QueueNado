@@ -19,7 +19,14 @@ Harpoon::Harpoon() : mQueueLength(1),    // Number of allowed messages in queue
                      mOffset(0),
                      mChunk(nullptr)
 {
-   mCtx = zmq_ctx_new();
+   // Initialize context and check for success
+   mCtx = static_cast<zctx_t *>(zmq_ctx_new()); // Explicit cast
+   if (mCtx == nullptr)
+   {
+      // Proper error handling using zmq_errno
+      fprintf(stderr, "Failed to create ZeroMQ context: %s\n", zmq_strerror(zmq_errno()));
+      assert(false); // Or handle error as appropriate
+   }
    CHECK(mCtx != nullptr);
    mDealer = zmq_socket(mCtx, ZMQ_DEALER);
    CHECK(mDealer != nullptr);
@@ -71,16 +78,32 @@ Harpoon::Battling Harpoon::PollTimeout(int timeoutMs)
 {
    using namespace std::chrono;
 
+   zmq_pollitem_t items[] = {
+       {mDealer, 0, ZMQ_POLLIN, 0} // Poll for incoming messages on the DEALER socket
+   };
+
    steady_clock::time_point pollStartMs = steady_clock::now();
-   while (!zmq_poll(mDealer, 1))
+   while (true)
    {
       int pollElapsedMs = duration_cast<milliseconds>(steady_clock::now() - pollStartMs).count();
       if (pollElapsedMs >= timeoutMs)
       {
-         return Harpoon::Battling::TIMEOUT;
+         return Harpoon::Battling::TIMEOUT; // Timeout reached
+      }
+
+      int rc = zmq_poll(items, 1, timeoutMs - pollElapsedMs); // Poll with remaining time
+      if (rc == -1)
+      {
+         std::cerr << "zmq_poll failed: " << zmq_strerror(zmq_errno()) << std::endl;
+         return Harpoon::Battling::TIMEOUT; // Handle error case
+      }
+
+      if (items[0].revents & ZMQ_POLLIN)
+      {
+         // There is data to read from the mDealer socket
+         return Harpoon::Battling::CONTINUE;
       }
    }
-   return Harpoon::Battling::CONTINUE;
 }
 
 /// Block until timeout or if there is new data to be received.
@@ -134,7 +157,8 @@ void Harpoon::FreeChunk()
 Harpoon::~Harpoon()
 {
    FreeChunk();
-   zmq_close(mCtx, mDealer);
+   zmq_close(mDealer);
+   zmq_ctx_term(mCtx);
    zmq_ctx_term(&mCtx);
 }
 
