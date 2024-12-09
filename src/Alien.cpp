@@ -132,6 +132,7 @@ void Alien::GetShot(const unsigned int timeout, std::vector<std::string> &bullet
  */
 Alien::~Alien()
 {
-   zsocket_destroy(mCtx, mBody);
-   zctx_destroy(&mCtx);
+   zmq_close(mBody);      // Close the socket
+   zmq_ctx_destroy(mCtx); // Destroy the context
+   zmq_ctx_destroy(&mCtx);
 }

@@ -2,6 +2,7 @@
 #include <zlib.h>
 #include <czmq.h>
 #include <zframe.h>
+#include <zmq.h>
 
 #include "Crowbar.h"
 #include <boost/thread.hpp>
@@ -86,26 +87,30 @@ void *Crowbar::GetTip()
    zsocket_set_linger(tip, 0);
    int connectRetries = 100;
 
-   while (zsocket_connect(tip, mBinding.c_str()) != 0 && connectRetries-- > 0 && !zctx_interrupted)
+   while (zmq_connect(tip, mBinding.c_str()) != 0 && connectRetries-- > 0 && !zctx_interrupted)
    {
       boost::this_thread::interruption_point();
       int err = zmq_errno();
       if (err == ETERM)
       {
-         zsocket_destroy(mContext, tip);
+         zmq_close(tip);
+         zmq_ctx_destroy(mContext);
+
          return NULL;
       }
       std::string error(zmq_strerror(err));
-      LOG(WARNING) << "Could not connect to " << mBinding << ":" << error;
-      zclock_sleep(100);
+      LOG(WARNING) << "Could not connect to " << mBinding << ": " << error;
+      zmq_sleep(100); // zmq_sleep is a replacement for zclock_sleep
    }
+
    if (zctx_interrupted)
    {
       LOG(INFO) << "Caught Interrupt Signal";
    }
    if (connectRetries <= 0)
    {
-      zsocket_destroy(mContext, tip);
+      zmq_close(tip);
+      zmq_ctx_destroy(mContext);
       return NULL;
    }
 
@@ -116,18 +121,19 @@ bool Crowbar::Wield()
 {
    if (!mContext)
    {
-      mContext = zctx_new();
-      zctx_set_linger(mContext, 0); // linger for a millisecond on close
-      zctx_set_sndhwm(mContext, GetHighWater());
-      zctx_set_rcvhwm(mContext, GetHighWater()); // HWM on internal thread communicaiton
-      zctx_set_iothreads(mContext, 1);
+      mContext = zmq_ctx_new();                              // create a new context
+      zmq_ctx_set(mContext, ZMQ_CTX_LINGER, 0);              // linger for a millisecond on close
+      zmq_ctx_set(mContext, ZMQ_CTX_SNDHWM, GetHighWater()); // set send high water mark
+      zmq_ctx_set(mContext, ZMQ_CTX_RCVHWM, GetHighWater()); // set receive high water mark
+      zmq_ctx_set(mContext, ZMQ_IO_THREADS, 1);              // set number of IO threads
    }
+
    if (!mTip)
    {
       mTip = GetTip();
       if (!mTip && mOwnsContext)
       {
-         zmq_ctx_destroy(&mContext);
+         zmq_ctx_term(mContext); // terminate the context
          mContext = NULL;
       }
    }
@@ -257,8 +263,24 @@ bool Crowbar::WaitForKill(std::vector<std::string> &guts, const int timeout)
    {
       return false;
    }
-   if (zsocket_poll(mTip, timeout))
+
+   // Set up the polling item for mTip socket
+   zmq_pollitem_t poll_items[] = {
+       {static_cast<void *>(mTip), 0, ZMQ_POLLIN, 0} // Socket, file descriptor, event (ZMQ_POLLIN means incoming message)
+   };
+
+   // zmq_poll will block up to the timeout value (in milliseconds)
+   int rc = zmq_poll(poll_items, 1, timeout); // Poll one item
+
+   if (rc == -1)
    {
+      // Handle poll error
+      return false;
+   }
+
+   if (poll_items[0].revents & ZMQ_POLLIN)
+   {
+      // Data is available, proceed to process the message
       return BlockForKill(guts);
    }
    return false;
