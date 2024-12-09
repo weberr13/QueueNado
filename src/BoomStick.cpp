@@ -446,25 +446,57 @@ bool BoomStick::GetReplyFromCache(const std::string &messageHash, std::string &r
  */
 bool BoomStick::CheckForMessagePending(const std::string &messageHash, const unsigned int msToWait, std::string &reply)
 {
-   if (0 == mUtilizedThread)
-   {
-      mUtilizedThread = pthread_self();
-   }
-   else
-   {
-      CHECK(pthread_self() == mUtilizedThread);
-   }
-   if (!mChamber)
-   {
-      LOG(WARNING) << "Invalid socket";
-      return false;
-   }
-   if (!zsocket_poll(mChamber, msToWait))
-   {
-      reply = "socket timed out";
-      return false;
-   }
-   return true;
+    if (0 == mUtilizedThread)
+    {
+        mUtilizedThread = pthread_self();
+    }
+    else
+    {
+        CHECK(pthread_self() == mUtilizedThread);
+    }
+
+    if (!mChamber)
+    {
+        LOG(WARNING) << "Invalid socket";
+        return false;
+    }
+
+    // Use zmq_poll for socket polling in zmq 4.x
+    zmq::pollitem_t items[] = {
+        { mChamber, 0, ZMQ_POLLIN, 0 }  // mChamber is the socket to poll for input
+    };
+
+    // zmq_poll will return when the socket is ready for reading or a timeout occurs
+    int rc = zmq::poll(items, 1, msToWait);
+
+    if (rc == -1)
+    {
+        // Handle error
+        reply = "zmq_poll failed";
+        return false;
+    }
+
+    if (items[0].revents & ZMQ_POLLIN)
+    {
+        // There is a message pending, you can now receive it
+        zmq::message_t message;
+        if (mChamber.recv(message))
+        {
+            // Process the message if necessary, and set the reply
+            reply = std::string(static_cast<char*>(message.data()), message.size());
+            return true;
+        }
+        else
+        {
+            // Failed to receive message
+            reply = "zmq recv failed";
+            return false;
+        }
+    }
+
+    // Timeout or no message received
+    reply = "socket timed out";
+    return false;
 }
 
 /**

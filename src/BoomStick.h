@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <map>
+#include <zmq.h>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/random/random_device.hpp>
@@ -24,11 +25,11 @@ public:
    void SetBinding(const std::string &binding);
    void SetSendHWM(const int hwm);
    void SetRecvHWM(const int hwm);
-   zctx_t *GetContext();
+   void *GetContext();
 
 protected:
-   virtual zctx_t *GetNewContext();
-   virtual void *GetNewSocket(zctx_t *ctx);
+   virtual void *GetNewContext();
+   virtual void *GetNewSocket(void *ctx);
    virtual bool ConnectToBinding(void *socket, const std::string &binding);
    virtual bool FindPendingUuid(const std::string &uuid) const;
    bool FindUnreadUuid(const std::string &uuid) const;
@@ -47,7 +48,7 @@ private:
    std::map<std::string, time_t> mPendingReplies;
    std::string mBinding;
    void *mChamber;
-   zctx_t *mCtx;
+   void *mCtx;
    boost::mt19937 mRan;
    boost::uuids::basic_random_generator<boost::mt19937> m_uuidGen;
    boost::random::random_device rng;
