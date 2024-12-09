@@ -78,7 +78,7 @@ BoomStick::~BoomStick()
  * Get the context (can be safely shared between threads)
  * @return
  */
-zctx_t *BoomStick::GetContext()
+void *BoomStick::GetContext()
 {
    return mCtx;
 }
@@ -181,7 +181,7 @@ void *BoomStick::GetNewContext()
  * @return
  *   A pointer to a socket
  */
-void *BoomStick::GetNewSocket(zctx_t *ctx)
+void *BoomStick::GetNewSocket(void *ctx)
 {
    if (nullptr == ctx)
    {
