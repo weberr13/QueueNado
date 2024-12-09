@@ -18,7 +18,7 @@ class Crowbar {
 public:
    explicit Crowbar(const std::string& binding);
    explicit Crowbar(const Headcrab& target);
-   Crowbar(const std::string& binding, zctx_t* context);
+   Crowbar(const std::string& binding, void* context);
    virtual ~Crowbar();
 
    bool Wield();
@@ -30,13 +30,13 @@ public:
    bool WaitForKill(std::string& gut,const int timeout);
    void* GetTip();
    static int GetHighWater();
-   zctx_t* GetContext();
+   void* GetContext();
 private:
    bool PollForReady();
    Crowbar(const Crowbar& that) : mContext(NULL), mTip(NULL) {
    }
 
-   zctx_t* mContext;
+   void* mContext;
    std::string mBinding;
    void* mTip;
    bool mOwnsContext;

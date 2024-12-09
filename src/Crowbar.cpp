@@ -81,9 +81,25 @@ void *Crowbar::GetTip()
       return NULL;
    }
 
-   zsocket_set_sndhwm(tip, GetHighWater());
-   zsocket_set_rcvhwm(tip, GetHighWater());
-   zsocket_set_linger(tip, 0);
+   int high_water_mark = GetHighWater();
+   int result = zmq_setsockopt(tip, ZMQ_SNDHWM, &high_water_mark, sizeof(high_water_mark));
+   if (result != 0)
+   {
+      LOG(WARNING) << "Failed to set send high water mark: " << zmq_strerror(zmq_errno());
+      zmq_close(tip);
+      return NULL;
+   }
+
+   result = zmq_setsockopt(tip, ZMQ_RCVHWM, &high_water_mark, sizeof(high_water_mark));
+   if (result != 0)
+   {
+      LOG(WARNING) << "Failed to set send high water mark: " << zmq_strerror(zmq_errno());
+      zmq_close(tip);
+      return NULL;
+   }
+
+   int linger = 0;
+   zmq_setsockopt(tip, ZMQ_LINGER, &linger, sizeof(linger));
    int connectRetries = 100;
 
    while (zmq_connect(tip, mBinding.c_str()) != 0 && connectRetries-- > 0 && !zctx_interrupted)
@@ -121,9 +137,9 @@ bool Crowbar::Wield()
    if (!mContext)
    {
       mContext = zmq_ctx_new();                              // create a new context
-      zmq_ctx_set(mContext, ZMQ_CTX_LINGER, 0);              // linger for a millisecond on close
-      zmq_ctx_set(mContext, ZMQ_CTX_SNDHWM, GetHighWater()); // set send high water mark
-      zmq_ctx_set(mContext, ZMQ_CTX_RCVHWM, GetHighWater()); // set receive high water mark
+      zmq_ctx_set(mContext, ZMQ_LINGER, 0);              // linger for a millisecond on close
+      zmq_ctx_set(mContext, ZMQ_SNDHWM, GetHighWater()); // set send high water mark
+      zmq_ctx_set(mContext, ZMQ_RCVHWM, GetHighWater()); // set receive high water mark
       zmq_ctx_set(mContext, ZMQ_IO_THREADS, 1);              // set number of IO threads
    }
 
@@ -285,7 +301,7 @@ bool Crowbar::WaitForKill(std::vector<std::string> &guts, const int timeout)
    return false;
 }
 
-zctx_t *Crowbar::GetContext()
+void *Crowbar::GetContext()
 {
    return mContext;
 }
