@@ -101,7 +101,7 @@ void Alien::GetShot(const unsigned int timeout, std::vector<std::string> &bullet
     if (rc == -1)
     {
         // Handle the error if zmq_poll fails
-        LOG(ERROR) << "zmq_poll failed: " << zmq_strerror(zmq_errno());
+        LOG(WARNING) << "zmq_poll failed: " << zmq_strerror(zmq_errno());
         return;
     }
 
