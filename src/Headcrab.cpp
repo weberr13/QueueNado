@@ -201,13 +201,30 @@ bool Headcrab::GetHitWait(std::string& theHit, const int timeout) {
 }
 
 bool Headcrab::GetHitWait(std::vector<std::string>& theHits, const int timeout) {
-   if (! mFace) {
-      return false;
-   }
-   if (zsocket_poll(mFace, timeout)) {
-      return GetHitBlock(theHits);
-   }
-   return false;
+    if (!mFace) {
+        return false; // Return false if the socket is invalid
+    }
+
+    // Create a zmq_pollitem_t structure to monitor the socket
+    zmq_pollitem_t items[] = {
+        { mFace, 0, ZMQ_POLLIN, 0 }  // Watch for incoming data (ZMQ_POLLIN)
+    };
+
+    // Call zmq_poll to block or timeout based on the provided 'timeout' in milliseconds
+    int rc = zmq_poll(items, 1, timeout);  // Timeout in milliseconds
+
+    if (rc == -1) {
+        // Error handling if zmq_poll fails
+        return false;
+    }
+
+    // Check if the socket has any incoming data (ZMQ_POLLIN)
+    if (items[0].revents & ZMQ_POLLIN) {
+        // Data is available on the socket, process it
+        return GetHitBlock(theHits);
+    }
+
+    return false;  // Timeout or no data available
 }
 
 bool Headcrab::SendSplatter(const std::string& feedback) {
