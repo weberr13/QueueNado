@@ -3,9 +3,9 @@
 #include <zsock.h>
 // #include <zsocket.h>
 #include <zmsg.h>
-#include <zmq.hpp>
 // #include <zsocket.h>
 // #include <zsockopt.h>
+#include <pthread.h>
 #include <zframe.h>
 #include <iostream>
 #include <time.h>
@@ -445,59 +445,40 @@ bool BoomStick::GetReplyFromCache(const std::string &messageHash, std::string &r
  * @param messageHash
  * @return
  */
-bool BoomStick::CheckForMessagePending(const std::string &messageHash, const unsigned int msToWait, std::string &reply)
-{
-    if (0 == mUtilizedThread)
-    {
-        mUtilizedThread = pthread_self();
-    }
-    else
-    {
-        CHECK(pthread_self() == mUtilizedThread);
-    }
+bool BoomStick::CheckForMessagePending(const std::string& messageHash, const unsigned int msToWait, std::string& reply) {
+   // Ensure that the calling thread is consistent
+   if (0 == mUtilizedThread) {
+      mUtilizedThread = pthread_self();
+   } else {
+      CHECK(pthread_self() == mUtilizedThread);
+   }
 
-    if (!mChamber)
-    {
-        LOG(WARNING) << "Invalid socket";
-        return false;
-    }
+   if (!mChamber) {
+      LOG(WARNING) << "Invalid socket";
+      return false;
+   }
 
-    // Use zmq_poll for socket polling in zmq 4.x
-    zmq::pollitem_t items[] = {
-        { mChamber, 0, ZMQ_POLLIN, 0 }  // mChamber is the socket to poll for input
-    };
+   // Prepare zmq_pollitem_t for polling the socket
+   zmq_pollitem_t items[] = {
+      { mChamber, 0, ZMQ_POLLIN, 0 }  // Check if there's data available to read
+   };
 
-    // zmq_poll will return when the socket is ready for reading or a timeout occurs
-    int rc = zmq::poll(items, 1, msToWait);
+   // Use zmq_poll to wait for the event
+   int rc = zmq_poll(items, 1, msToWait);
+   if (rc == -1) {
+      LOG(WARNING) << "zmq_poll failed: " << zmq_strerror(errno);
+      reply = "socket poll error";
+      return false;
+   }
 
-    if (rc == -1)
-    {
-        // Handle error
-        reply = "zmq_poll failed";
-        return false;
-    }
+   // Check if the socket has data available
+   if (items[0].revents & ZMQ_POLLIN) {
+      return true;
+   }
 
-    if (items[0].revents & ZMQ_POLLIN)
-    {
-        // There is a message pending, you can now receive it
-        zmq::message_t message;
-        if (mChamber.recv(message))
-        {
-            // Process the message if necessary, and set the reply
-            reply = std::string(static_cast<char*>(message.data()), message.size());
-            return true;
-        }
-        else
-        {
-            // Failed to receive message
-            reply = "zmq recv failed";
-            return false;
-        }
-    }
-
-    // Timeout or no message received
-    reply = "socket timed out";
-    return false;
+   // If no data after the timeout
+   reply = "socket timed out";
+   return false;
 }
 
 /**
