@@ -17,10 +17,10 @@ public:
    explicit Headcrab(const std::string& binding);
    virtual ~Headcrab();
    std::string GetBinding() const;
-   zctx_t* GetContext() const;
+   void* GetContext() const;
    bool ComeToLife();
 
-   void* GetFace(zctx_t* context);
+   void* GetFace(void* context);
    bool GetHitBlock(std::vector<std::string>& theHits);
    bool GetHitWait(std::vector<std::string>& theHit,const int timeout);
    bool SendSplatter(std::vector<std::string>& feedback);
@@ -35,7 +35,7 @@ private:
    }
 
    std::string mBinding;
-   zctx_t* mContext;
+   void* mContext;
    void* mFace;
 };
 

@@ -25,7 +25,7 @@ Headcrab::Headcrab(const std::string& binding) : mBinding(binding), mContext(NUL
  */
 Headcrab::~Headcrab() {
    if (mContext) {
-      zctx_destroy(&mContext);
+      zmq_ctx_destroy(&mContext);
    }
 }
 
@@ -47,15 +47,34 @@ int Headcrab::GetHighWater() {
  * @return 
  *   A pointer to the socket (or NULL in the case of a failure)
  */
-void* Headcrab::GetFace(zctx_t* context) {
+void* Headcrab::GetFace(void* context) {
    if (mFace == NULL && context) {
-      void* face = zsocket_new(context, ZMQ_REP);
+      void* face = zmq_socket(context, ZMQ_REP);
       assert(face != NULL);
-      zsocket_set_sndhwm(face, GetHighWater());
-      zsocket_set_rcvhwm(face, GetHighWater());
-      zsocket_set_linger(face, 0);
+
+      int high_water_mark = GetHighWater();
+
+   int result = zmq_setsockopt(face, ZMQ_SNDHWM, &high_water_mark, sizeof(high_water_mark));
+   if (result != 0)
+   {
+      LOG(WARNING) << "Failed to set send high water mark: " << zmq_strerror(zmq_errno());
+      zmq_close(face);
+      return NULL;
+   }
+
+   result = zmq_setsockopt(face, ZMQ_RCVHWM, &high_water_mark, sizeof(high_water_mark));
+   if (result != 0)
+   {
+      LOG(WARNING) << "Failed to set send high water mark: " << zmq_strerror(zmq_errno());
+      zmq_close(face);
+      return NULL;
+   }
+
+   int linger = 0;
+   zmq_setsockopt(face, ZMQ_LINGER, &linger, sizeof(linger));
+
       int connectRetries = 100;
-      while ((zsocket_bind(face, GetBinding().c_str()) < 0) && connectRetries -- > 0) {
+      while (zmq_connect(face, mBinding.c_str()) < 0 && connectRetries-- > 0) {
          boost::this_thread::interruption_point();
          int err = zmq_errno();
          if (err == ETERM) {
@@ -104,11 +123,11 @@ void Headcrab::setIpcFilePermissions() {
  */
 bool Headcrab::ComeToLife() {
    if (! mContext) {
-      mContext = zctx_new();
-      zctx_set_linger(mContext, 0); // linger for a millisecond on close
-      zctx_set_sndhwm(mContext, GetHighWater());
-      zctx_set_rcvhwm(mContext, GetHighWater()); // HWM on internal thread communication
-      zctx_set_iothreads(mContext, 1);
+      mContext = zmq_ctx_new();
+      zmq_ctx_set(mContext, ZMQ_LINGER, 0);   // linger for a millisecond on close
+      zmq_ctx_set(mContext, ZMQ_SNDHWM, GetHighWater());
+      zmq_ctx_set(mContext, ZMQ_RCVHWM, GetHighWater()); // HWM on internal thread communication
+      zmq_ctx_set(mContext, ZMQ_IO_THREADS, 1);  
    }
    if (! mFace) {
       void* face = GetFace(mContext);
@@ -133,7 +152,7 @@ std::string Headcrab::GetBinding() const {
  * @return 
  *   The context if the headcrab is alive, or NULL
  */
-zctx_t* Headcrab::GetContext() const {
+void* Headcrab::GetContext() const {
    return mContext;
 }
 
