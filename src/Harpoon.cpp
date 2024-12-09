@@ -19,9 +19,9 @@ Harpoon::Harpoon() : mQueueLength(1),    // Number of allowed messages in queue
                      mOffset(0),
                      mChunk(nullptr)
 {
-   mCtx = zctx_new();
+   mCtx = zrex_new();
    CHECK(mCtx != nullptr);
-   mDealer = zsocket_new(mCtx, ZMQ_DEALER);
+   mDealer = zsock_new(mCtx, ZMQ_DEALER);
    CHECK(mDealer != nullptr);
    mCredit = mQueueLength;
 }
