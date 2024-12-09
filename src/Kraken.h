@@ -55,7 +55,7 @@ protected:
 
 private:
    void* mRouter;
-   zctx_t* mCtx;
+   void* mCtx;
    std::string mLocation;
    size_t mQueueLength;
    size_t mMaxChunkSize;

@@ -5,10 +5,12 @@
  * Created on December, 2014
  */
 
+#include <zmq.h>
 #include <czmq.h>
 #include <g3log/g3log.hpp>
 #include "Kraken.h"
 #include <chrono>
+#include <iostream>
 
 namespace {
    const size_t kDefaultMaxChunkSize_10MB_inBytes = 10 * 1024 * 1024;
@@ -22,20 +24,36 @@ Kraken::Kraken():
    mIdentity(nullptr),
    mTimeoutMs(300000), //5 Minutes
    mChunk(nullptr) {
-   mCtx = zctx_new();
+   mCtx = zmq_ctx_new();
    CHECK(mCtx!=nullptr);
-   mRouter = zsocket_new(mCtx, ZMQ_ROUTER);
+   mRouter = zmq_socket(mCtx, ZMQ_ROUTER);
    CHECK(mRouter!=nullptr);
 }
 
 /// Set location of the queue (TCP location)
 Kraken::Spear Kraken::SetLocation(const std::string& location) {
    mLocation = location;
-   zsocket_set_hwm(mRouter, mQueueLength * 2);
+   int high_water_mark = mQueueLength * 2; // 2x the number of messages in the queue
 
-   int result = zsocket_bind(mRouter, mLocation.c_str());
+   int result = zmq_setsockopt(mRouter, ZMQ_SNDHWM, &high_water_mark, sizeof(high_water_mark));
+   if (result != 0)
+   {
+      LOG(WARNING) << "Failed to set send high water mark: " << zmq_strerror(zmq_errno());
+      zmq_close(mRouter);
+      return NULL;
+   }
 
-   LOG(INFO) << "zsocket_bind result: " << result << ", " << location;
+   result = zmq_setsockopt(mRouter, ZMQ_RCVHWM, &high_water_mark, sizeof(high_water_mark));
+   if (result != 0)
+   {
+      LOG(WARNING) << "Failed to set send high water mark: " << zmq_strerror(zmq_errno());
+      zmq_close(mRouter);
+      return NULL;
+   }
+
+   result = zmq_bind(mRouter, mLocation.c_str());
+
+   LOG(INFO) << "zmq_bind result: " << result << ", " << location;
    return (-1 == result) ? Kraken::Spear::MISS : Kraken::Spear::IMPALED;
 }
 
@@ -83,15 +101,33 @@ Kraken::Battling Kraken::PollTimeout(int timeoutMs) {
    using namespace std::chrono;
 
    steady_clock::time_point pollStartMs = steady_clock::now();
-   while (!zsocket_poll(mRouter, 1)) {
+
+   // Create a poll item for the router socket (watching for ZMQ_POLLIN event)
+   zmq_pollitem_t items[1];
+   items[0].socket = mRouter;
+   items[0].events = ZMQ_POLLIN;
+   while (true) {
+      // Call zmq_poll to check for incoming messages or timeout
+      int rc = zmq_poll(items, 1, timeoutMs);  // Poll for the specified timeout
+      if (rc == -1) {
+         // Handle error
+         std::cerr << "zmq_poll failed: " << zmq_strerror(zmq_errno()) << std::endl;
+         return Kraken::Battling::TIMEOUT;
+      }
+
+      // Check if there is a message available
+      if (items[0].revents & ZMQ_POLLIN) {
+         // Data is ready to be read from the socket, continue processing
+         return Kraken::Battling::CONTINUE;
+      }
+
+      // Check if we have exceeded the timeout
       int pollElapsedMs = duration_cast<milliseconds>(steady_clock::now() - pollStartMs).count();
       if (pollElapsedMs >= timeoutMs) {
          return Kraken::Battling::TIMEOUT;
       }
    }
-   return Kraken::Battling::CONTINUE;
 }
-
 /// Internally used to get an ACK from the client asking for another chunk.
 /// We use this so that the sender does not send more data to the client than what the
 /// client can consume and therefore overloading the queue.
@@ -194,9 +230,10 @@ Kraken::Battling Kraken::SendRawData(const uint8_t* data, int size) {
 
 /// Destruction of the Kraken and zmq socket and memory cleanup
 Kraken::~Kraken() {
-   zsocket_unbind(mRouter, mLocation.c_str());
-   zsocket_destroy(mCtx, mRouter);
-   zctx_destroy(&mCtx);
+   zmq_unbind(mRouter, mLocation.c_str());
+   zmq_close(mRouter);      // Close the socket
+   zmq_ctx_destroy(mCtx); // Destroy the context
+   zmq_ctx_destroy(&mCtx);
    mCtx = nullptr;
    FreeOldRequests();
    FreeChunk();
