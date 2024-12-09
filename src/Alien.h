@@ -16,5 +16,5 @@ public:
     
 private:
    void *mBody;
-   zctx_t *mCtx;
+   void *mCtx;
 };

@@ -2,7 +2,6 @@
 #include <zlib.h>
 #include <czmq.h>
 #include <zframe.h>
-#include <zmq.h>
 
 #include "Crowbar.h"
 #include <boost/thread.hpp>

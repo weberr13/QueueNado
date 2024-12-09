@@ -3,6 +3,9 @@
 #include "boost/thread.hpp"
 #include "g3log/g3log.hpp"
 #include <iostream>
+#include <vector>
+#include <string>
+#include <zmq.h>
 
 #include "Alien.h"
 
@@ -82,49 +85,68 @@ std::vector<std::string> Alien::GetShot()
  */
 void Alien::GetShot(const unsigned int timeout, std::vector<std::string> &bullets)
 {
-   bullets.clear();
-   if (!mBody)
-   {
-      LOG(WARNING) << "Alien attempted to GetShot but is not properly initialized";
-      return;
-   }
+    bullets.clear();
 
-   if (zsocket_poll(mBody, timeout))
-   {
-      zmsg_t *msg = zmsg_recv(mBody);
-      if (msg && zmsg_size(msg) >= 2)
-      {
-         zframe_t *data = zmsg_pop(msg);
-         if (data)
-         {
-            // remove the first frame
-            zframe_destroy(&data);
-         }
-         int msgSize = zmsg_size(msg);
-         for (int i = 0; i < msgSize; i++)
-         {
-            data = zmsg_pop(msg);
-            if (data)
-            {
-               std::string bullet;
-               bullet.assign(reinterpret_cast<char *>(zframe_data(data)), zframe_size(data));
-               bullets.push_back(bullet);
-               zframe_destroy(&data);
-            }
-         }
-      }
-      else
-      {
-         if (msg)
-         {
-            LOG(WARNING) << "Got Invalid bullet of size: " << zmsg_size(msg);
-         }
-      }
-      if (msg)
-      {
-         zmsg_destroy(&msg);
-      }
-   }
+    if (!mBody)
+    {
+        LOG(WARNING) << "Alien attempted to GetShot but is not properly initialized";
+        return;
+    }
+
+    // Create a zmq_pollitem_t for the socket
+    zmq_pollitem_t item = {mBody, 0, ZMQ_POLLIN, 0};
+
+    // Use zmq_poll to check the socket for messages
+    int rc = zmq_poll(&item, 1, timeout);
+    if (rc == -1)
+    {
+        // Handle the error if zmq_poll fails
+        LOG(ERROR) << "zmq_poll failed: " << zmq_strerror(zmq_errno());
+        return;
+    }
+
+    if (item.revents & ZMQ_POLLIN)
+    {
+        // A message is available, so receive it
+        zmq_msg_t msg;
+        zmq_msg_init(&msg);
+
+        rc = zmq_msg_recv(&msg, mBody, 0);
+        if (rc == -1)
+        {
+            LOG(WARNING) << "Failed to receive message: " << zmq_strerror(zmq_errno());
+            zmq_msg_close(&msg);
+            return;
+        }
+
+        // Process the message
+        size_t msgSize = zmq_msg_size(&msg);
+        size_t offset = 0;
+
+        while (offset < msgSize)
+        {
+            // Create a frame
+            zmq_msg_t frame;
+            zmq_msg_init_size(&frame, msgSize - offset);
+
+            // Copy data from the message to the frame
+            memcpy(zmq_msg_data(&frame), static_cast<char *>(zmq_msg_data(&msg)) + offset, zmq_msg_size(&frame));
+            offset += zmq_msg_size(&frame);
+
+            // Extract the data from the frame
+            std::string bullet(static_cast<char *>(zmq_msg_data(&frame)), zmq_msg_size(&frame));
+            bullets.push_back(bullet);
+
+            zmq_msg_close(&frame);
+        }
+
+        zmq_msg_close(&msg);
+    }
+    else
+    {
+        // Timeout or no message
+        LOG(WARNING) << "No messages received within the timeout period.";
+    }
 }
 
 /**
