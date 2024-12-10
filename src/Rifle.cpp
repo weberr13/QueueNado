@@ -92,7 +92,7 @@ bool Rifle::Aim() {
       zmq_ctx_set(mContext, ZMQ_IO_THREADS, 1);  
    }
    if (!mChamber) {
-      mChamber = zmq_socket(mcontext, ZMQ_PUSH);
+      mChamber = zmq_socket(mContext, ZMQ_PUSH);
       CZMQToolkit::setHWMAndBuffer(mChamber, GetHighWater());
       if (GetOwnSocket()) {
          int result = zmq_bind(mChamber, mLocation.c_str());
