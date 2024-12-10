@@ -1,6 +1,11 @@
 #include <boost/thread.hpp>
 #define _OPEN_SYS
 #include <sys/stat.h>
+#include <zmq.h>
+#include <boost/thread.hpp>  //Boost for sleeping and threading
+#include <vector>
+#include <utility>
+
 
 #include "Vampire.h"
 #include "czmq.h"
@@ -87,20 +92,21 @@ bool Vampire::PrepareToBeShot() {
       return true;
    }
    if (!mContext) {
-      mContext = zctx_new();
-      zctx_set_sndhwm(mContext, GetHighWater());
-      zctx_set_rcvhwm(mContext, GetHighWater());// HWM on internal thread communication
-      //zctx_set_linger(mContext, mLinger); // linger for a millisecond on close
-      zctx_set_iothreads(mContext, GetIOThreads());
+      mContext = zmq_ctx_new();
+      zmq_ctx_set(mContext, ZMQ_LINGER, 0);   // linger for a millisecond on close
+      zmq_ctx_set(mContext, ZMQ_SNDHWM, GetHighWater());
+      zmq_ctx_set(mContext, ZMQ_RCVHWM, GetHighWater()); // HWM on internal thread communication
+      zmq_ctx_set(mContext, ZMQ_IO_THREADS, 1); 
    }
    if (!mBody) {
-      mBody = zsocket_new(mContext, ZMQ_PULL);
+      mBody = zmq_socket(mContext, ZMQ_PULL);
       CZMQToolkit::setHWMAndBuffer(mBody, GetHighWater());
       if (GetOwnSocket()) {
-         int result = zsocket_bind(mBody, mLocation.c_str());
+         int result = zmq_bind(mBody, mLocation.c_str());
 
          if (result < 0) {
-            zsocket_destroy(mContext, mBody);
+            zmq_close(mBody);
+            zmq_ctx_destroy(mContext);
             mBody = NULL;
             LOG(WARNING) << "Vampire Can't bind : " << result;
             return false;
@@ -108,9 +114,10 @@ bool Vampire::PrepareToBeShot() {
          setIpcFilePermissions();
          Death::Instance().RegisterDeathEvent(&Death::DeleteIpcFiles, mLocation);
       } else {
-         int result = zsocket_connect(mBody, mLocation.c_str());
+         int result = zmq_connect(mBody, mLocation.c_str());
          if (result < 0) {
-            zsocket_destroy(mContext, mBody);
+            zmq_close(mBody);
+            zmq_ctx_destroy(mContext);
             mBody = NULL;
             LOG(WARNING) << "Vampire Can't connect : " << result;
             return false;
@@ -196,38 +203,49 @@ bool Vampire::GetShot(std::string& wound, const int timeout) {
  *   If something was found
  */
 bool Vampire::GetStake(void*& stake, const int timeout) {
-   if (!mBody) {
-      LOG(WARNING) << "Socket uninitialized!";
-      boost::this_thread::sleep(boost::posix_time::seconds(1));
-      return false;
-   }
-   bool success = false;
-   zmsg_t* message = NULL;
-   if (zsocket_poll(mBody, timeout)) {
-      message = zmsg_recv(mBody);
-      if (message && (zmsg_size(message) == 1)) {
-         zframe_t* frame = zmsg_pop(message);
-         if (frame && zframe_size(frame) != sizeof (void*)) {
-            LOG(WARNING) << "Received non-pointer message.";
-         } else if(frame) {
-            stake = *reinterpret_cast<void**> (zframe_data(frame));
-            success = true;
-         }
-         //always delete frame if it exists
-         if (frame) {
-            zframe_destroy(&frame);
-         }
-      } else if (message) {
-         LOG(WARNING) << "Received an invalid message";
-      }
-   }
-   if (message) {
-      zmsg_destroy(&message);
-   }
-   if (!success) {
-      stake = NULL;
-   }
-   return success;
+    if (!mBody) {
+        LOG(WARNING) << "Socket uninitialized!";
+        boost::this_thread::sleep(boost::posix_time::seconds(1));
+        return false;
+    }
+    
+    bool success = false;
+    zmq_msg_t message;
+    zmq_msg_init(&message);
+
+    // Polling the socket with timeout using zmq_poll
+    zmq_pollitem_t items[] = { {mBody, 0, ZMQ_POLLIN, 0} };
+    int rc = zmq_poll(items, 1, timeout);
+
+    if (rc > 0 && items[0].revents & ZMQ_POLLIN) {
+        // Receive the message
+        if (zmq_msg_recv(&message, mBody, 0) != -1) {
+            // Verify that the message has the expected size (1 frame)
+            if (zmq_msg_size(&message) == sizeof(void*)) {
+                void* frame_data = zmq_msg_data(&message);
+                stake = *reinterpret_cast<void**>(frame_data);
+                success = true;
+            } else {
+                LOG(WARNING) << "Received non-pointer message.";
+            }
+        } else {
+            LOG(WARNING) << "Error receiving message: " << zmq_strerror(zmq_errno());
+        }
+    } else if (rc == -1) {
+        LOG(WARNING) << "zmq_poll error: " << zmq_strerror(zmq_errno());
+    } else {
+        LOG(WARNING) << "Timeout occurred, no message received.";
+    }
+
+    // Cleanup message
+    zmq_msg_close(&message);
+
+    // Ensure stake is null if not successful
+    if (!success) {
+        stake = NULL;
+    }
+
+    return success;
 }
 
 /**
@@ -249,43 +267,58 @@ bool Vampire::GetStakeNoWait(void*& stake) {
  * @return 
  *   If something was found
  */
-bool Vampire::GetStakes(std::vector<std::pair<void*, unsigned int> >& stakes,
-   const int timeout) {
-   if (!mBody) {
-      LOG(WARNING) << "Socket uninitialized!";
-      boost::this_thread::sleep(boost::posix_time::seconds(1));
-      return false;
-   }
-   bool success = false;
-   zmsg_t* message = NULL;
-   if (zsocket_poll(mBody, timeout)) {
-      message = zmsg_recv(mBody);
-      if (message && zmsg_size(message) == 1) {
-         zframe_t* frame = zmsg_pop(message);
-         if (frame && zframe_size(frame) < (sizeof (std::pair<void*, unsigned int>))) {
-            LOG(WARNING) << "Received non-pointer message.";
-         } else if (frame) {
-            stakes.clear();
-            stakes.assign(reinterpret_cast<std::pair<void*, unsigned int>*> (zframe_data(frame)),
-               reinterpret_cast<std::pair<void*, unsigned int>*> (zframe_data(frame))
-               + (zframe_size(frame) / sizeof (std::pair<void*, unsigned int>)));
-            success = true;
-         }
-         //always delete frame if it exists
-         if (frame) {
-            zframe_destroy(&frame);
-         }
-      } else if (!message || (zmsg_size(message) != 1)) {
-         LOG(WARNING) << "Received invalid message.";
-      }
-   }
-   if (message) {
-      zmsg_destroy(&message);
-   }
-   if (!success) {
-      stakes.clear();
-   }
-   return success;
+bool Vampire::GetStakes(std::vector<std::pair<void*, unsigned int>>& stakes, const int timeout) {
+    if (!mBody) {
+        LOG(WARNING) << "Socket uninitialized!";
+        boost::this_thread::sleep(boost::posix_time::seconds(1));
+        return false;
+    }
+
+    bool success = false;
+    zmq_msg_t message;
+    zmq_msg_init(&message);
+
+    // Polling the socket with timeout using zmq_poll
+    zmq_pollitem_t items[] = { {mBody, 0, ZMQ_POLLIN, 0} };
+    int rc = zmq_poll(items, 1, timeout);
+
+    if (rc > 0 && items[0].revents & ZMQ_POLLIN) {
+        // Receive the message
+        if (zmq_msg_recv(&message, mBody, 0) != -1) {
+            size_t message_size = zmq_msg_size(&message);
+
+            // Verify the received message size is appropriate for an array of std::pair<void*, unsigned int>
+            if (message_size % sizeof(std::pair<void*, unsigned int>) == 0) {
+                size_t num_pairs = message_size / sizeof(std::pair<void*, unsigned int>);
+                void* frame_data = zmq_msg_data(&message);
+
+                stakes.clear();
+                // Deserialize the pairs into the stakes vector
+                stakes.assign(reinterpret_cast<std::pair<void*, unsigned int>*>(frame_data),
+                              reinterpret_cast<std::pair<void*, unsigned int>*>(frame_data) + num_pairs);
+
+                success = true;
+            } else {
+                LOG(WARNING) << "Received message with invalid size.";
+            }
+        } else {
+            LOG(WARNING) << "Error receiving message: " << zmq_strerror(zmq_errno());
+        }
+    } else if (rc == -1) {
+        LOG(WARNING) << "zmq_poll error: " << zmq_strerror(zmq_errno());
+    } else {
+        LOG(WARNING) << "Timeout occurred, no message received.";
+    }
+
+    // Cleanup message
+    zmq_msg_close(&message);
+
+    // Ensure stakes is cleared if not successful
+    if (!success) {
+        stakes.clear();
+    }
+
+    return success;
 }
 
 /**
@@ -295,8 +328,9 @@ bool Vampire::GetStakes(std::vector<std::pair<void*, unsigned int> >& stakes,
 void Vampire::Destroy() {
    if (mContext != NULL) {
       //LOG(DEBUG) << "Vampire: destroying context";
-      zsocket_destroy(mContext, mBody);
-      zctx_destroy(&mContext);
+      zmq_close(mBody);
+      zmq_ctx_destroy(mContext);
+      zmq_ctx_destroy(&mContext);
       //zclock_sleep(mLinger * 2);
       mContext = NULL;
       mBody = NULL;

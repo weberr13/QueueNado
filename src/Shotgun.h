@@ -16,5 +16,5 @@ public:
 private:
    void setIpcFilePermissions(const std::string& location);
    void *mGun;
-   zctx_t *mCtx;
+   void *mCtx;
 };

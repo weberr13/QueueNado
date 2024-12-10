@@ -28,7 +28,7 @@ private:
    std::string mLocation;
    int mHwm;
    void* mBody;
-   zctx_t* mContext;
+   void* mContext;
    int mLinger;
    int mIOThredCount;
    bool mOwnSocket;
