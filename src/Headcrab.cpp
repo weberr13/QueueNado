@@ -74,7 +74,7 @@ void* Headcrab::GetFace(void* context) {
    zmq_setsockopt(face, ZMQ_LINGER, &linger, sizeof(linger));
 
       int connectRetries = 100;
-      while (zmq_connect(face, mBinding.c_str()) < 0 && connectRetries-- > 0) {
+      while (zmq_bind(face, mBinding.c_str()) < 0 && connectRetries-- > 0) {
          boost::this_thread::interruption_point();
          int err = zmq_errno();
          if (err == ETERM) {

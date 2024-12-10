@@ -1,5 +1,6 @@
 #define _OPEN_SYS
 #include <sys/stat.h>
+#include <zmq.h>
 
 #include "Rifle.h"
 #include "czmq.h"
@@ -84,31 +85,33 @@ bool Rifle::Aim() {
       return true;
    }
    if (!mContext) {
-      mContext = zctx_new();
-      zctx_set_sndhwm(mContext, GetHighWater());
-      zctx_set_rcvhwm(mContext, GetHighWater());
-      //zctx_set_linger(mContext, mLinger); // linger for a millisecond on close
-      zctx_set_iothreads(mContext, mIOThredCount);
+      mContext = zmq_ctx_new();
+      zmq_ctx_set(mContext, ZMQ_LINGER, 0);   // linger for a millisecond on close
+      zmq_ctx_set(mContext, ZMQ_SNDHWM, GetHighWater());
+      zmq_ctx_set(mContext, ZMQ_RCVHWM, GetHighWater()); // HWM on internal thread communication
+      zmq_ctx_set(mContext, ZMQ_IO_THREADS, 1);  
    }
    if (!mChamber) {
-      mChamber = zsocket_new(mContext, ZMQ_PUSH);
+      mChamber = zmq_socket(mcontext, ZMQ_PUSH);
       CZMQToolkit::setHWMAndBuffer(mChamber, GetHighWater());
       if (GetOwnSocket()) {
-         int result = zsocket_bind(mChamber, mLocation.c_str());
+         int result = zmq_bind(mChamber, mLocation.c_str());
 
          if (result < 0) {
             LOG(WARNING) << "Rifle can't bind : " << result;
-            zsocket_destroy(mContext, mChamber);
+            zmq_close(mChamber);
+            zmq_ctx_destroy(mContext);
             mChamber = NULL;
             return false;
          }
          setIpcFilePermissions();
          Death::Instance().RegisterDeathEvent(&Death::DeleteIpcFiles, mLocation);
       } else {
-         int result = zsocket_connect(mChamber, mLocation.c_str());
+         int result = zmq_connect(mChamber, mLocation.c_str());
          if (result < 0) {
             LOG(WARNING) << "Rifle can't connect : " << result;
-            zsocket_destroy(mContext, mChamber);
+            zmq_close(mChamber);
+            zmq_ctx_destroy(mContext);
             mChamber = NULL;
             return false;
          }
@@ -294,8 +297,9 @@ bool Rifle::FireStakes(const std::vector<std::pair<void*, unsigned int> >
 void Rifle::Destroy() {
    if (mContext != NULL) {
       //LOG(DEBUG) << "Rifle: destroying context";
-      zsocket_destroy(mContext, mChamber);
-      zctx_destroy(&mContext);
+      zmq_close(mChamber);
+      zmq_ctx_destroy(mContext);
+      zmq_ctx_destroy(&mContext);
       //zclock_sleep(mLinger * 2);
       mChamber = NULL;
       mContext = NULL;

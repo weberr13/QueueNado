@@ -31,7 +31,7 @@ private:
    std::string mLocation;
    int mHwm;
    void* mChamber;
-   zctx_t* mContext;
+   void* mContext;
    int mLinger;
    int mIOThredCount;
    bool mOwnSocket;

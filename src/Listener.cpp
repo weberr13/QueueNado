@@ -28,7 +28,7 @@ void ZeroCopyDelete(void*, void* data) {
 std::unique_ptr<Listener>  Listener::CreateListener(const std::string& notificationQueue, const std::string& handshakeQueue, const std::string& program) {
    auto listener = std::unique_ptr<Listener>(new Listener(notificationQueue, handshakeQueue, program));
    if (listener->Initialize()) {
-      return std::move(listener);
+      return listener;
    }
    std::unique_ptr<Listener> deadListener;
    return deadListener;
