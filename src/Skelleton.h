@@ -11,7 +11,7 @@ public:
 
    virtual ~Skelleton() {
       if (mContext) {
-         zctx_destroy(&mContext);
+         zmq_ctx_destroy(&mContext);
       }
    }
 
@@ -20,7 +20,7 @@ public:
    }
 protected:
    std::string mBinding;
-   zctx_t* mContext;
+   void* mContext;
    void* mFace;
 };
 
